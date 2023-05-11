@@ -75,7 +75,7 @@ Widget getUserProfileData(BuildContext context, Profile userProfile) {
         height: 20,
       ),
       Text(
-        'Seleccione el auto con el que ingresaras o registre alguno!',
+        'Sus vehiculos registrados',
         style: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w500,
@@ -186,16 +186,16 @@ class NewCarButton extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: ElevatedButton(
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => CarRegistrationPage(),
-              ),
-            );
+            // Navigator.of(context).push(
+            //   MaterialPageRoute(
+            //     builder: (context) => CarRegistrationPage(),
+            //   ),
+            // );
           },
           style: ElevatedButton.styleFrom(
             shape: CircleBorder(),
           ),
-          child: Icon(Icons.add),
+          child: Icon(Icons.car_rental),
         ),
       ),
     );

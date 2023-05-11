@@ -20,6 +20,8 @@ class FindPlaceErrorState extends PlaceState {
   FindPlaceErrorState({required this.error});
 }
 
+class FindPlaceNotParkedState extends PlaceState {}
+
 class FindPlaceLoadingState extends PlaceState {}
 
 class LeavePlaceSuccessState extends PlaceState {}

@@ -56,6 +56,8 @@ class PlaceFinderPage extends StatelessWidget {
             } else if (state is FindPlaceSuccessState) {
               var asignedPlace = context.watch<PlaceBloc>().asignedPlace;
               return getPlaceFinderData(context, asignedPlace!);
+            } else if (state is FindPlaceNotParkedState) {
+              return getNotParkedHandler(context);
             } else {
               return Text('else');
             }
@@ -64,6 +66,102 @@ class PlaceFinderPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget getNotParkedHandler(BuildContext context) {
+    return Column(
+      children: [
+        NotParkedBanner(context),
+        SizedBox(
+          height: 40,
+        ),
+        ItesoMap(context),
+        Expanded(
+          child: SizedBox(),
+        ),
+      ],
+    );
+  }
+
+  Widget NotParkedBanner(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'No tienes un lugar asignado!',
+                  style: TextStyle(
+                    color: Colors.grey[100],
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'tu lugar se te asignará cuando entres al ITESO:)',
+                  style: TextStyle(
+                    color: Colors.grey[100],
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+Widget ItesoMap(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.0),
+        border: Border.all(
+          color: Colors.black,
+          width: 2.0,
+        ),
+      ),
+      padding: EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              bottom: 8.0,
+            ),
+            child: Text(
+              'Como llegar hasta ITESO?',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              _launchInBrowser(context, 'https://goo.gl/maps/ihkNXtbrCijWejjV9');
+            },
+            child: Image.network(
+              'https://www.mexicoescultura.com/galerias/espacios/principal/4876377.jpg',
+              fit: BoxFit.fill,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget getPlaceFinderData(BuildContext context, Place asignedPlace) {
     // final Place asignedPlace = dummyPlace;

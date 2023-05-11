@@ -52,6 +52,14 @@ dependencies:
   google_sign_in:
   loading_animation_widget: ^1.2.0+3
   url_launcher: ^6.1.6
+  #Nuevas Dependencias Proyecto Cloud
+  mysql1:
+  # amplify_flutter: ^1.0.0
+  # amplify_api: 
+  # amplify_core:
+  # amplify_auth_cognito:
+  # amplify_analytics_pinpoint:
+  # amplify_storage_s3:
 
 dev_dependencies:
   flutter_launcher_icons: ^0.10.0

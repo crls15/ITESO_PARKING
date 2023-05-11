@@ -5,6 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iteso_parking/place_finder/place.dart';
+import 'package:iteso_parking/utils/Section.dart';
+import 'package:mysql1/mysql1.dart';
+
+import '../../utils/Place.dart' as utilsPlace;
+import '../../utils/db_conn.dart';
 
 part 'place_event.dart';
 part 'place_state.dart';
@@ -28,113 +33,141 @@ class PlaceBloc extends Bloc<PlaceEvent, PlaceState> {
     if (placeFinded == true) {
       emit(FindPlaceSuccessState());
     } else {
-      emit(FindPlaceErrorState(error: 'Error'));
+      emit(FindPlaceNotParkedState());
     }
   }
 
   Future<dynamic> _searchPlace() async {
-    var user = await FirebaseFirestore.instance
-        .collection("user")
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .get();
+    String? firebase_id = FirebaseAuth.instance.currentUser?.uid;
+    MySqlConnection? dbConnection = await DatabaseProvider().connection;
 
-    var user_data_map = await user.data();
+    String queryParkingLog = '''
+                    SELECT 
+                    parking_logs.id_parking_logs AS id_parking_logs,
+                    parking_logs.id_places AS id_places
+                    FROM users
+                    INNER JOIN parking_logs
+                    ON parking_logs.id_users = users.id_users
+                    WHERE parking_logs.isActive = 1
+                    AND users.firebase_id = "${firebase_id}"
+                  ''';
 
-    if (user_data_map!['isParked'] == true) {
+    var serRes_queryParkingLog = await dbConnection?.query(queryParkingLog);
+
+    if (serRes_queryParkingLog!.isNotEmpty) {
+      var asignedPlaceId = serRes_queryParkingLog.first.fields['id_places'];
+
+      String queryPlace = '''
+                    SELECT *
+                    FROM places
+                    WHERE places.id_places = "${asignedPlaceId}"
+                  ''';
+
+      var serRes_queryPlace = await dbConnection?.query(queryPlace);
+
+      utilsPlace.Place asignedPlaceUtils =
+          new utilsPlace.Place.fromJson(serRes_queryPlace!.first.fields);
+
+      String querySection = '''
+                    SELECT *
+                    FROM sections
+                    WHERE sections.id_sections = "${asignedPlaceUtils.id_sections}"
+                  ''';
+
+      var serRes_querySection = await dbConnection?.query(querySection);
+
+      Section asignedSectionUtils =
+          new Section.fromJson(serRes_querySection!.first.fields);
+
       asignedPlace = Place(
-        section: user_data_map['parkedSection'],
-        number: user_data_map['parkedPlace'],
-        longitude: user_data_map['parkedLongitude'],
-        latitude: user_data_map['parkedLatitude'],
-        imageUrl: user_data_map['parkedImageUrl'],
-        mapsUrl: user_data_map['parkedMapsUrl'],
+        section: asignedSectionUtils.sectionName,
+        number: asignedPlaceUtils.placeNumber,
+        longitude: 0.0,
+        latitude: 0.0,
+        imageUrl: asignedSectionUtils.imageURL,
+        mapsUrl: asignedSectionUtils.mapsURL,
       );
 
       return true;
-    }
+    } else {
+      return false;
+    } 
 
-    var sectionsFire = await FirebaseFirestore.instance
-        .collection("sections")
-        .where('occupancy', isLessThan: 200)
-        .get();
 
-    var randSectionIndex = Random().nextInt(sectionsFire.docs.length - 1);
+    /*else {
+      String queryFindPlace = '''
+                                  SELECT
+                                  sections.id_sections AS id_sections,
+                                  places.id_places AS id_places
+                                  FROM user_favorite_sections
+                                  INNER JOIN users ON users.id_users = user_favorite_sections.id_users
+                                  INNER JOIN sections ON sections.id_sections = user_favorite_sections.id_sections
+                                  INNER JOIN places ON places.id_sections = sections.id_sections
+                                  WHERE users.firebase_id = ${firebase_id}
+                                      AND places.isOccupied = 0
+                                  ORDER BY sections.sectionName ASC, places.placeNumber ASC
+                                  LIMIT 1
+                                ''';
 
-    var asignedSection = sectionsFire.docs[randSectionIndex];
+      var serRes_queryFindPlace = await dbConnection?.query(queryFindPlace);
 
-    var sections_collection =
-        await FirebaseFirestore.instance.collection("sections");
+      if (serRes_queryFindPlace!.isEmpty) {
+        String queryFindPlace = '''
+                                    SELECT 
+                                    sections.id_sections AS id_sections,
+                                    places.id_places AS id_places
+                                    FROM places
+                                    INNER JOIN sections
+                                    ON sections.id_sections = places.id_sections
+                                    WHERE places.isOccupied = 0
+                                    ORDER BY sections.sectionName ASC, places.placeNumber ASC
+                                    LIMIT 1
+                                  ''';
 
-    var placeList_collection = await FirebaseFirestore.instance
-        .collection("sections")
-        .doc(asignedSection.id)
-        .collection("placesList");
+        var serRes_queryFindPlace = await dbConnection?.query(queryFindPlace);
+      }
 
-    var placesFire =
-        await placeList_collection.where("isOccupied", isEqualTo: false).get();
+      var asignedPlaceId = serRes_queryFindPlace.first.fields['id_places'];
+      var asignedSectionId = serRes_queryFindPlace.first.fields['id_sections'];
 
-    var asignedPlace_fire = placesFire.docs[0];
+      String queryPlace = '''
+                    SELECT *
+                    FROM places
+                    WHERE places.id_places = "${asignedPlaceId}"
+                  ''';
 
-    var carsList_collection = await FirebaseFirestore.instance
-        .collection("user")
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .collection("carsList")
-        .where("isActive", isEqualTo: true)
-        .get();
+      var serRes_queryPlace = await dbConnection?.query(queryPlace);
 
-    Map<String, dynamic> place_map = {
-      'isOccupied': true,
-      'occupiedBy': FirebaseAuth.instance.currentUser?.uid,
-      'place': await asignedPlace_fire.data()["place"],
-      'plates': await carsList_collection.docs[0].data()["plates"]
-    };
+      utilsPlace.Place asignedPlaceUtils =
+          new utilsPlace.Place.fromJson(serRes_queryPlace!.first.fields);
 
-    await placeList_collection.doc(asignedPlace_fire.id).update(place_map);
+      String querySection = '''
+                    SELECT *
+                    FROM sections
+                    WHERE sections.id_sections = "${asignedPlaceUtils.id_sections}"
+                  ''';
 
-    var section_map = await asignedSection.data();
-    section_map['occupancy']++;
-    // var occupancy = section_map['occupancy'];
-    // occupancy = occupancy + 1;
-    // section_map['occupancy'] = occupancy;
+      var serRes_querySection = await dbConnection?.query(querySection);
 
-    await sections_collection.doc(asignedSection.id).update(section_map);
+      Section asignedSectionUtils =
+          new Section.fromJson(serRes_querySection!.first.fields);
 
-    // print(asignedSection.data());
-    // print(asignedPlace_fire.data());
-
-    var user_map = await user.data();
-    user_map!['isParked'] = true;
-    user_map['parkedSection'] = await asignedSection.data()['section'];
-    user_map['parkedPlace'] = await asignedPlace_fire.data()['place'];
-    user_map['parkedLongitude'] = await asignedSection.data()['longitude'];
-    user_map['parkedLatitude'] = await asignedSection.data()['latitude'];
-    user_map['parkedImageUrl'] = await asignedSection.data()['imageUrl'];
-    user_map['parkedMapsUrl'] = await asignedSection.data()['mapsUrl'];
-
-    await FirebaseFirestore.instance
-        .collection("user")
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .update(user_map);
-
-    user = await FirebaseFirestore.instance
-        .collection("user")
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .get();
-
-    user_data_map = await user.data();
-
-    if (user_data_map!['isParked'] == true) {
       asignedPlace = Place(
-        section: user_data_map['parkedSection'],
-        number: user_data_map['parkedPlace'],
-        longitude: user_data_map['parkedLongitude'],
-        latitude: user_data_map['parkedLatitude'],
-        imageUrl: user_data_map['parkedImageUrl'],
-        mapsUrl: user_data_map['parkedMapsUrl'],
+        section: asignedSectionUtils.sectionName,
+        number: asignedPlaceUtils.placeNumber,
+        longitude: 0.0,
+        latitude: 0.0,
+        imageUrl: asignedSectionUtils.imageURL,
+        mapsUrl: asignedSectionUtils.mapsURL,
       );
-    }
 
-    return true;
+      String queryInsertParkingLogs = '''
+                                      INSERT INTO parking_logs (id_users, id_user_cars, id_places, checkIn, isActive)
+                                      VALUES (1, 1, 1, NOW(), 1);
+                                    ''';
+
+      return true;
+    }*/
   }
 
   Future<void> _leavePlace(event, emit) async {
